@@ -39,7 +39,6 @@ func handleRequest() uint64 {
 			HostPath: evs.CWDHostPath,
 		}
 	}
-
 	ctx := &Context{
 		Ctx:      context.Background(),
 		CWD:      cwd,
