@@ -37,18 +37,34 @@ func (i *Issue) Error() string {
 	return i.Message
 }
 
-// Error returns an Issue as the error interface.
-func Error(lvl v1alpha1.IssueLevel, msg string) error {
+// Error returns an error level Issue.
+func Error(msg string) *Issue {
 	return &Issue{
-		IssueLevel: lvl,
+		IssueLevel: v1alpha1.IssueLevel_LEVEL_ERROR,
 		Message:    msg,
 	}
 }
 
 // Errorf same as Error but with string formatting.
-func Errorf(lvl v1alpha1.IssueLevel, msg string, args ...any) error {
+func Errorf(msg string, args ...any) *Issue {
 	return &Issue{
-		IssueLevel: lvl,
+		IssueLevel: v1alpha1.IssueLevel_LEVEL_ERROR,
+		Message:    fmt.Sprintf(msg, args...),
+	}
+}
+
+// Warn returns an error level Issue.
+func Warn(msg string) *Issue {
+	return &Issue{
+		IssueLevel: v1alpha1.IssueLevel_LEVEL_WARN,
+		Message:    msg,
+	}
+}
+
+// Warnf same as Warn but with string formatting.
+func Warnf(msg string, args ...any) *Issue {
+	return &Issue{
+		IssueLevel: v1alpha1.IssueLevel_LEVEL_WARN,
 		Message:    fmt.Sprintf(msg, args...),
 	}
 }
