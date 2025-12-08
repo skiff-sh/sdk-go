@@ -13,6 +13,7 @@ import (
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
 	"github.com/skiff-sh/sdk-go/pluginapi"
+	"github.com/skiff-sh/sdk-go/skiff/issue"
 )
 
 //go:wasmexport handleRequest
@@ -56,11 +57,32 @@ func handleRequest() uint64 {
 	}
 	if err != nil {
 		logger.Error("Failed to handle request.", "err", err.Error())
-		return uint64(pluginapi.ExitCodePluginErr)
+		resp.Issues = issues(err)
 	}
 
 	logger.Info("Returning response.")
 	return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
+}
+
+func issues(err error) []*v1alpha1.Issue {
+	switch typ := err.(type) {
+	case issue.PluginIssue:
+		if iss := typ.Issue(); iss != nil {
+			return []*v1alpha1.Issue{iss}
+		}
+	case interface{ Unwrap() []error }:
+		errs := typ.Unwrap()
+		out := make([]*v1alpha1.Issue, 0, len(errs))
+		for _, v := range errs {
+			out = append(out, issues(v)...)
+		}
+	default:
+		return []*v1alpha1.Issue{{
+			Level:   v1alpha1.IssueLevel_LEVEL_ERROR,
+			Message: err.Error(),
+		}}
+	}
+	return []*v1alpha1.Issue{}
 }
 
 func writeResponse(writer io.Writer, delim byte, resp *v1alpha1.Response) pluginapi.ExitCode {

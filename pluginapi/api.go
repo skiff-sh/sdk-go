@@ -31,8 +31,6 @@ func (e ExitCode) String() string {
 		return "failed to read request"
 	case ExitCodeFailedToUnmarshalRequest:
 		return "failed to unmarshal request"
-	case ExitCodePluginErr:
-		return "plugin error"
 	case ExitCodeFailedToMarshalResponse:
 		return "failed to marshal response"
 	case ExitCodeFailedToWriteResponse:
@@ -50,7 +48,6 @@ const (
 	ExitCodePluginNotRegistered
 	ExitCodeFailedToReadRequest
 	ExitCodeFailedToUnmarshalRequest
-	ExitCodePluginErr
 	ExitCodeFailedToMarshalResponse
 	ExitCodeFailedToWriteResponse
 	ExitCodeMessageDelimInvalid
