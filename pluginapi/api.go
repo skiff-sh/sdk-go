@@ -14,14 +14,6 @@ const (
 	EnvVarMessageDelimiterDefaultValue = '\n'
 )
 
-// RequestType the input to distinguish which request is being targeted.
-type RequestType int64
-
-const (
-	RequestTypeNone RequestType = iota
-	RequestTypeWriteFile
-)
-
 type ExitCode uint64
 
 func (e ExitCode) String() string {

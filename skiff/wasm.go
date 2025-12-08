@@ -1,59 +1,76 @@
 package skiff
 
 import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
 	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
 	"github.com/skiff-sh/sdk-go/pluginapi"
 )
 
 //go:wasmexport handleRequest
-func handleRequest(typ uint64) uint64 {
-	//evs, code := parseEnvVars()
-	//if code != pluginapi.ExitCodeOK {
-	//	return uint64(code)
-	//}
-	//
-	//root := os.DirFS(evs.RootPath)
-	//
-	////ctx := &Context{
-	////	Ctx:  context.Background(),
-	////	Root: root,
-	////}
-	//
-	//var resp proto.Message
-	//var err error
-	//switch pluginapi.RequestType(typ) {
-	//case pluginapi.RequestTypeWriteFile:
-	//	//req := new(v1alpha1.WriteFileRequest)
-	//	//code = parseRequest(os.Stdin, evs.MessageDelim, req)
-	//	if code != pluginapi.ExitCodeOK {
-	//		return uint64(code)
-	//	}
-	//	//resp, err = plugin.WriteFile(ctx, req)
-	//default:
-	//	return uint64(pluginapi.ExitCodeOK)
-	//}
-	//if err != nil {
-	//	return uint64(pluginapi.ExitCodePluginErr)
-	//}
+func handleRequest() uint64 {
+	logger, _ := newLogger(logSpec{Outputs: []string{"stderr"}})
+	evs, code := parseEnvVars()
+	if code != pluginapi.ExitCodeOK {
+		return uint64(code)
+	}
 
-	//return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
-	return 0
+	logger.Info("Parsing request.")
+	req, code := parseRequest(os.Stdin, evs.MessageDelim)
+	if code != pluginapi.ExitCodeOK {
+		return uint64(code)
+	}
+	if req == nil {
+		return uint64(code)
+	}
+
+	root := os.DirFS(evs.RootPath)
+
+	ctx := &Context{
+		Ctx:  context.Background(),
+		Root: root,
+	}
+
+	logger.Info("Handling request.")
+	resp := &v1alpha1.Response{}
+	var err error
+	if req.WriteFile != nil {
+		resp.WriteFile, err = plugin.WriteFile(ctx, req.WriteFile)
+	} else {
+		return uint64(pluginapi.ExitCodeOK)
+	}
+	if err != nil {
+		logger.Error("Failed to handle request.", "err", err.Error())
+		return uint64(pluginapi.ExitCodePluginErr)
+	}
+
+	logger.Info("Returning response.")
+	return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
 }
 
-//func writeResponse(writer io.Writer, delim byte, resp proto.Message) pluginapi.ExitCode {
-//	raw, err := proto.Marshal(resp)
-//	if err != nil {
-//		return pluginapi.ExitCodeFailedToMarshalResponse
-//	}
-//
-//	_, err = io.Copy(writer, bytes.NewBuffer(append(raw, delim)))
-//	if err != nil {
-//		return pluginapi.ExitCodeFailedToWriteResponse
-//	}
-//
-//	return pluginapi.ExitCodeOK
-//}
+func writeResponse(writer io.Writer, delim byte, resp *v1alpha1.Response) pluginapi.ExitCode {
+	raw, err := json.Marshal(resp)
+	if err != nil {
+		slog.Error("Failed to marshal response.", "err", err.Error())
+		return pluginapi.ExitCodeFailedToMarshalResponse
+	}
+
+	_, err = io.Copy(writer, bytes.NewBuffer(append(raw, delim)))
+	if err != nil {
+		slog.Error("Failed to copy byte buffer for response.", "err", err.Error())
+		return pluginapi.ExitCodeFailedToWriteResponse
+	}
+
+	return pluginapi.ExitCodeOK
+}
 
 type envVars struct {
 	MessageDelim byte
@@ -80,27 +97,93 @@ func parseEnvVars() (*envVars, pluginapi.ExitCode) {
 	return out, pluginapi.ExitCodeOK
 }
 
-//func parseRequest(reader io.Reader, delim byte, msg proto.Message) pluginapi.ExitCode {
-//	if plugin == nil {
-//		return pluginapi.ExitCodePluginNotRegistered
-//	}
-//
-//	b, err := bufio.NewReader(reader).ReadBytes(delim)
-//	if err != nil {
-//		return pluginapi.ExitCodeFailedToReadRequest
-//	}
-//	if len(b) == 0 {
-//		return 0
-//	}
-//
-//	// Drop the delimiter
-//	b = b[:len(b)-1]
-//
-//	err = proto.Unmarshal(b, msg)
-//	if err != nil {
-//		fmt.Println(err.Error())
-//		return pluginapi.ExitCodeFailedToUnmarshalRequest
-//	}
-//
-//	return pluginapi.ExitCodeOK
-//}
+func parseRequest(reader io.Reader, delim byte) (*v1alpha1.Request, pluginapi.ExitCode) {
+	if plugin == nil {
+		return nil, pluginapi.ExitCodePluginNotRegistered
+	}
+
+	b, err := bufio.NewReader(reader).ReadBytes(delim)
+	if err != nil {
+		slog.Error("Failed to read request.", "err", err.Error())
+		return nil, pluginapi.ExitCodeFailedToReadRequest
+	}
+	if len(b) == 0 {
+		slog.Info("Received an empty request. Returning.")
+		return nil, pluginapi.ExitCodeOK
+	}
+
+	// Drop the delimiter
+	b = b[:len(b)-1]
+
+	req := new(v1alpha1.Request)
+	err = json.Unmarshal(b, req)
+	if err != nil {
+		slog.Error("Failed to unmarshal request.", "err", err.Error())
+		return nil, pluginapi.ExitCodeFailedToUnmarshalRequest
+	}
+
+	return req, pluginapi.ExitCodeOK
+}
+
+// logSpec represents logging config.
+type logSpec struct {
+	Level string
+	// Valid values are:
+	// * stdout
+	// * stderr
+	// * fullfile path
+	Outputs []string
+}
+
+// Copied from the config library. Want to avoid external dependency to reduce overall binary size.
+func newLogger(log logSpec) (*slog.Logger, error) {
+	w := make([]io.Writer, 0, len(log.Outputs))
+	for _, v := range log.Outputs {
+		switch v {
+		case "stdout":
+			w = append(w, os.Stdout)
+		case "stderr":
+			w = append(w, os.Stderr)
+		default:
+			f, err := os.OpenFile(v, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+			if err != nil {
+				return nil, err
+			}
+			w = append(w, f)
+		}
+	}
+
+	logger := slog.New(slog.NewJSONHandler(io.MultiWriter(w...), &slog.HandlerOptions{
+		AddSource: true,
+		Level:     parseLevel(log.Level),
+		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
+			if a.Key == slog.SourceKey {
+				source, _ := a.Value.Any().(*slog.Source)
+				if source != nil {
+					source.Function = ""
+					source.File = filepath.Base(source.File)
+				}
+			}
+			return a
+		},
+	}))
+
+	slog.SetDefault(logger)
+
+	return logger, nil
+}
+
+func parseLevel(lvl string) slog.Level {
+	switch strings.ToLower(lvl) {
+	case "info":
+		return slog.LevelInfo
+	case "debug":
+		return slog.LevelDebug
+	case "error":
+		return slog.LevelError
+	case "warn", "warning":
+		return slog.LevelWarn
+	default:
+		return slog.LevelInfo
+	}
+}
