@@ -10,8 +10,8 @@ import (
 type Context struct {
 	Ctx context.Context
 
-	// The root of the project.
-	Root fs.FS
+	// The current working directory of the user. This is only set if the user explicitly provides access.
+	CWD *VolumeMount
 
 	// The data provided by the user by name. The available names can be seen in the schema field of the package.
 	Data map[string]*v1alpha1.Value
@@ -20,7 +20,12 @@ type Context struct {
 	Metadata *v1alpha1.RequestMetadata
 }
 
-type Package struct {
+type VolumeMount struct {
+	// The fs.FS representing the mount for the plugin from the host (user's machine).
+	FS fs.FS
+
+	// The absolute path to the host path for the volume. Useful for logging.
+	HostPath string
 }
 
 // Plugin is capable of performing operations on files

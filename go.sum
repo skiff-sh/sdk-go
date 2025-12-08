@@ -2,3 +2,5 @@ github.com/skiff-sh/api/go v0.0.0-20251208180006-9e8263490210 h1:nGAmnX2xJIlwu9+
 github.com/skiff-sh/api/go v0.0.0-20251208180006-9e8263490210/go.mod h1:BmmyarVPe5+g2YL40UtT104v08yCyoE0JDaxpPqK+sE=
 github.com/skiff-sh/api/go v0.0.0-20251208195328-c09a5bce8664 h1:zNxKoARtQybKdH+ZKR98/qnN29rky5JZPnLZPrD7oRk=
 github.com/skiff-sh/api/go v0.0.0-20251208195328-c09a5bce8664/go.mod h1:BmmyarVPe5+g2YL40UtT104v08yCyoE0JDaxpPqK+sE=
+github.com/skiff-sh/api/go v0.0.0-20251208213009-c139f92ebff6 h1:nYrYxmNWwX8sbjkoz1GgBIoRR9XN7D3mTjdKwxJg+IE=
+github.com/skiff-sh/api/go v0.0.0-20251208213009-c139f92ebff6/go.mod h1:BmmyarVPe5+g2YL40UtT104v08yCyoE0JDaxpPqK+sE=

@@ -32,11 +32,17 @@ func handleRequest() uint64 {
 		return uint64(code)
 	}
 
-	root := os.DirFS(evs.RootPath)
+	var cwd *VolumeMount
+	if evs.CWDPath != "" {
+		cwd = &VolumeMount{
+			FS:       os.DirFS(evs.CWDPath),
+			HostPath: evs.CWDHostPath,
+		}
+	}
 
 	ctx := &Context{
 		Ctx:      context.Background(),
-		Root:     root,
+		CWD:      cwd,
 		Data:     req.Data,
 		Metadata: req.Metadata,
 	}
@@ -76,7 +82,8 @@ func writeResponse(writer io.Writer, delim byte, resp *v1alpha1.Response) plugin
 
 type envVars struct {
 	MessageDelim byte
-	RootPath     string
+	CWDPath      string
+	CWDHostPath  string
 }
 
 func parseEnvVars() (*envVars, pluginapi.ExitCode) {
@@ -91,9 +98,12 @@ func parseEnvVars() (*envVars, pluginapi.ExitCode) {
 		out.MessageDelim = msgDelim[0]
 	}
 
-	out.RootPath, ok = os.LookupEnv(pluginapi.EnvVarProjectPath)
-	if !ok {
-		return nil, pluginapi.ExitCodeRootPathEnvVarMissing
+	out.CWDPath, ok = os.LookupEnv(pluginapi.EnvVarCWD)
+	if ok {
+		out.CWDHostPath, ok = os.LookupEnv(pluginapi.EnvVarCWDHost)
+		if !ok {
+			return nil, pluginapi.ExitCodeCWDHostPathMissing
+		}
 	}
 
 	return out, pluginapi.ExitCodeOK

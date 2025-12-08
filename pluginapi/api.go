@@ -6,10 +6,15 @@ const (
 )
 
 const (
-	// EnvVarProjectPath the absolute path to the root of the project
-	EnvVarProjectPath = "__PROJECT_PATH"
+	// EnvVarCWD the absolute path to the current working directory. Only set if the user provides the permission.
+	EnvVarCWD = "__CWD"
+
+	// EnvVarCWDHost the absolute path to the current working directory on the host machine. Only set if the user provides the permission. Useful for more informative logging or error messages.
+	EnvVarCWDHost = "__CWD_HOST"
+
 	// EnvVarMessageDelimiter the delimiter for input/output messages read from stdin or stdout. Every message you read or write must end with this string
 	EnvVarMessageDelimiter = "__MESSAGE_DELIM"
+
 	// EnvVarMessageDelimiterDefaultValue is the default value for EnvVarMessageDelimiter.
 	EnvVarMessageDelimiterDefaultValue = '\n'
 )
@@ -34,15 +39,14 @@ func (e ExitCode) String() string {
 		return "failed to write response"
 	case ExitCodeMessageDelimInvalid:
 		return "message delimiter must be a single byte"
-	case ExitCodeRootPathEnvVarMissing:
-		return EnvVarProjectPath + " env var missing"
+	case ExitCodeCWDHostPathMissing:
+		return EnvVarCWD + " was set but not " + EnvVarCWDHost
 	}
 	return ""
 }
 
 const (
 	ExitCodeOK ExitCode = iota
-	ExitCodeRootPathEnvVarMissing
 	ExitCodePluginNotRegistered
 	ExitCodeFailedToReadRequest
 	ExitCodeFailedToUnmarshalRequest
@@ -50,4 +54,5 @@ const (
 	ExitCodeFailedToMarshalResponse
 	ExitCodeFailedToWriteResponse
 	ExitCodeMessageDelimInvalid
+	ExitCodeCWDHostPathMissing
 )
