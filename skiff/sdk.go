@@ -9,8 +9,18 @@ import (
 
 type Context struct {
 	Ctx context.Context
+
 	// The root of the project.
 	Root fs.FS
+
+	// The data provided by the user by name. The available names can be seen in the schema field of the package.
+	Data map[string]*v1alpha1.Value
+
+	// The metadata of the request.
+	Metadata *v1alpha1.RequestMetadata
+}
+
+type Package struct {
 }
 
 // Plugin is capable of performing operations on files

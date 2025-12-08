@@ -35,8 +35,10 @@ func handleRequest() uint64 {
 	root := os.DirFS(evs.RootPath)
 
 	ctx := &Context{
-		Ctx:  context.Background(),
-		Root: root,
+		Ctx:      context.Background(),
+		Root:     root,
+		Data:     req.Data,
+		Metadata: req.Metadata,
 	}
 
 	logger.Info("Handling request.")
