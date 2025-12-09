@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -48,20 +49,29 @@ func handleRequest() uint64 {
 	}
 
 	logger.Info("Handling request.")
-	resp := &v1alpha1.Response{}
-	var err error
-	if req.WriteFile != nil {
-		resp.WriteFile, err = plugin.WriteFile(ctx, req.WriteFile)
-	} else {
-		return uint64(pluginapi.ExitCodeOK)
-	}
+	resp, err := runPlugin(ctx, req)
 	if err != nil {
 		logger.Error("Failed to handle request.", "err", err.Error())
-		resp.Issues = issues(err)
+		resp = &v1alpha1.Response{Issues: issues(err)}
 	}
 
 	logger.Info("Returning response.")
 	return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
+}
+
+func runPlugin(ctx *Context, req *v1alpha1.Request) (*v1alpha1.Response, error) {
+	resp := &v1alpha1.Response{}
+	var err error
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			slog.Error("Panic occurred.", "panic", recovered)
+			err = fmt.Errorf("runtime error: %v", recovered)
+		}
+	}()
+	if req.WriteFile != nil {
+		resp.WriteFile, err = plugin.WriteFile(ctx, req.WriteFile)
+	}
+	return resp, err
 }
 
 func issues(err error) []*v1alpha1.Issue {
