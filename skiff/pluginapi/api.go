@@ -17,6 +17,9 @@ const (
 
 	// EnvVarMessageDelimiterDefaultValue is the default value for EnvVarMessageDelimiter.
 	EnvVarMessageDelimiterDefaultValue = '\n'
+
+	// EnvVarLogLevel sets the log level. These levels are case-insensitive. If unset, defaults to "info". Valid values are "debug", "info", "warn", and "error".
+	EnvVarLogLevel = "__LOG_LEVEL"
 )
 
 type ExitCode uint64

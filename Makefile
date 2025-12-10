@@ -8,7 +8,7 @@ all:
 	cd cmd/skiff && go build -o ../../bin/skiff main.go
 
 mocks:
-	rm -rf pkg/mocks
+	rm -rf skiff/mocks
 	find . -type f -name 'mock_*.go' -delete
 	mockery
 

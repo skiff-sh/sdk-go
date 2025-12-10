@@ -1,4 +1,4 @@
-package skiff
+package wasm
 
 import (
 	"bufio"
@@ -11,38 +11,49 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
-	"github.com/skiff-sh/sdk-go/pluginapi"
+	"github.com/skiff-sh/sdk-go/skiff"
 	"github.com/skiff-sh/sdk-go/skiff/issue"
+	"github.com/skiff-sh/sdk-go/skiff/pluginapi"
 )
 
 //go:wasmexport handleRequest
 func handleRequest() uint64 {
+	stdout := os.Stdout
+	// All log statements must go to stderr. Stdout is for returning the response of the call.
+	os.Stdout = os.Stderr
+	return uint64(runRequest(skiff.GetPlugin(), os.Stdin, stdout))
+}
+
+func runRequest(plug skiff.Plugin, in io.Reader, out io.Writer) pluginapi.ExitCode {
+	if plug == nil {
+		return pluginapi.ExitCodePluginNotRegistered
+	}
+
 	logger, _ := newLogger(logSpec{Outputs: []string{"stderr"}})
 	evs, code := parseEnvVars()
 	if code != pluginapi.ExitCodeOK {
-		return uint64(code)
+		return code
 	}
 
 	logger.Info("Parsing request.")
-	req, code := parseRequest(os.Stdin, evs.MessageDelim)
+	req, code := parseRequest(in, evs.MessageDelim)
 	if code != pluginapi.ExitCodeOK {
-		return uint64(code)
+		return code
 	}
 	if req == nil {
-		return uint64(code)
+		return code
 	}
 
-	var cwd *VolumeMount
+	var cwd *skiff.VolumeMount
 	if evs.CWDPath != "" {
-		cwd = &VolumeMount{
+		cwd = &skiff.VolumeMount{
 			FS:       os.DirFS(evs.CWDPath),
 			HostPath: evs.CWDHostPath,
 		}
 	}
-	ctx := &Context{
+	ctx := &skiff.Context{
 		Ctx:      context.Background(),
 		CWD:      cwd,
 		Data:     req.Data,
@@ -50,26 +61,28 @@ func handleRequest() uint64 {
 	}
 
 	logger.Info("Handling request.")
-	resp, err := runPlugin(ctx, req)
+	resp, err := runPlugin(ctx, plug, req)
 	if err != nil {
 		logger.Error("Failed to handle request.", "err", err.Error())
 		resp = &v1alpha1.Response{Issues: issues(err)}
 	}
 
 	logger.Info("Returning response.")
-	return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
+	return writeResponse(out, evs.MessageDelim, resp)
 }
 
-func runPlugin(ctx *Context, req *v1alpha1.Request) (resp *v1alpha1.Response, err error) {
+func runPlugin(ctx *skiff.Context, plug skiff.Plugin, req *v1alpha1.Request) (resp *v1alpha1.Response, err error) {
 	resp = &v1alpha1.Response{}
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			slog.Error("Panic occurred.", "panic", recovered, "stack", string(debug.Stack()))
+			slog.Error("Panic occurred.", "panic", recovered)
+			fmt.Println("-- Stack trace --")
+			fmt.Println(string(debug.Stack()))
 			err = fmt.Errorf("runtime error: %v", recovered)
 		}
 	}()
 	if req.WriteFile != nil {
-		resp.WriteFile, err = plugin.WriteFile(ctx, req.WriteFile)
+		resp.WriteFile, err = plug.WriteFile(ctx, req.WriteFile)
 	}
 	return resp, err
 }
@@ -115,10 +128,13 @@ type envVars struct {
 	MessageDelim byte
 	CWDPath      string
 	CWDHostPath  string
+	LogLevel     string
 }
 
 func parseEnvVars() (*envVars, pluginapi.ExitCode) {
-	out := &envVars{}
+	out := &envVars{
+		LogLevel: os.Getenv(pluginapi.EnvVarLogLevel),
+	}
 	msgDelim, ok := os.LookupEnv(pluginapi.EnvVarMessageDelimiter)
 	if !ok {
 		out.MessageDelim = pluginapi.EnvVarMessageDelimiterDefaultValue
@@ -141,10 +157,6 @@ func parseEnvVars() (*envVars, pluginapi.ExitCode) {
 }
 
 func parseRequest(reader io.Reader, delim byte) (*v1alpha1.Request, pluginapi.ExitCode) {
-	if plugin == nil {
-		return nil, pluginapi.ExitCodePluginNotRegistered
-	}
-
 	b, err := bufio.NewReader(reader).ReadBytes(delim)
 	if err != nil {
 		slog.Error("Failed to read request.", "err", err.Error())
@@ -216,17 +228,19 @@ func newLogger(log logSpec) (*slog.Logger, error) {
 	return logger, nil
 }
 
+var validLogLevels = map[string]slog.Level{
+	"info":    slog.LevelInfo,
+	"debug":   slog.LevelDebug,
+	"warn":    slog.LevelWarn,
+	"warning": slog.LevelWarn,
+	"error":   slog.LevelError,
+	"err":     slog.LevelError,
+}
+
 func parseLevel(lvl string) slog.Level {
-	switch strings.ToLower(lvl) {
-	case "info":
-		return slog.LevelInfo
-	case "debug":
-		return slog.LevelDebug
-	case "error":
-		return slog.LevelError
-	case "warn", "warning":
-		return slog.LevelWarn
-	default:
+	o, ok := validLogLevels[lvl]
+	if !ok {
 		return slog.LevelInfo
 	}
+	return o
 }
