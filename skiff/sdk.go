@@ -34,12 +34,8 @@ type Plugin interface {
 	WriteFile(ctx *Context, req *v1alpha1.WriteFileRequest) (*v1alpha1.WriteFileResponse, error)
 }
 
-var defaultPlugin Plugin
-
-func GetPlugin() Plugin {
-	return defaultPlugin
-}
+var plugin Plugin
 
 func Register(p Plugin) {
-	defaultPlugin = p
+	plugin = p
 }

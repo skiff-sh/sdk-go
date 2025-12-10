@@ -1,4 +1,4 @@
-package wasm
+package skiff
 
 import (
 	"bufio"
@@ -13,7 +13,6 @@ import (
 	"runtime/debug"
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
-	"github.com/skiff-sh/sdk-go/skiff"
 	"github.com/skiff-sh/sdk-go/skiff/issue"
 	"github.com/skiff-sh/sdk-go/skiff/pluginapi"
 )
@@ -23,10 +22,11 @@ func handleRequest() uint64 {
 	stdout := os.Stdout
 	// All log statements must go to stderr. Stdout is for returning the response of the call.
 	os.Stdout = os.Stderr
-	return uint64(runRequest(skiff.GetPlugin(), os.Stdin, stdout))
+	return uint64(runRequest(plugin, os.Stdin, stdout))
 }
 
-func runRequest(plug skiff.Plugin, in io.Reader, out io.Writer) pluginapi.ExitCode {
+// runRequest reads the request from in and writes the response to out.
+func runRequest(plug Plugin, in io.Reader, out io.Writer) pluginapi.ExitCode {
 	if plug == nil {
 		return pluginapi.ExitCodePluginNotRegistered
 	}
@@ -46,14 +46,14 @@ func runRequest(plug skiff.Plugin, in io.Reader, out io.Writer) pluginapi.ExitCo
 		return code
 	}
 
-	var cwd *skiff.VolumeMount
+	var cwd *VolumeMount
 	if evs.CWDPath != "" {
-		cwd = &skiff.VolumeMount{
+		cwd = &VolumeMount{
 			FS:       os.DirFS(evs.CWDPath),
 			HostPath: evs.CWDHostPath,
 		}
 	}
-	ctx := &skiff.Context{
+	ctx := &Context{
 		Ctx:      context.Background(),
 		CWD:      cwd,
 		Data:     req.Data,
@@ -71,7 +71,7 @@ func runRequest(plug skiff.Plugin, in io.Reader, out io.Writer) pluginapi.ExitCo
 	return writeResponse(out, evs.MessageDelim, resp)
 }
 
-func runPlugin(ctx *skiff.Context, plug skiff.Plugin, req *v1alpha1.Request) (resp *v1alpha1.Response, err error) {
+func runPlugin(ctx *Context, plug Plugin, req *v1alpha1.Request) (resp *v1alpha1.Response, err error) {
 	resp = &v1alpha1.Response{}
 	defer func() {
 		if recovered := recover(); recovered != nil {

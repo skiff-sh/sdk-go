@@ -1,4 +1,4 @@
-package wasm
+package skiff
 
 import (
 	"bytes"
@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
-	"github.com/skiff-sh/sdk-go/skiff"
-	"github.com/skiff-sh/sdk-go/skiff/mocks/skiffmocks"
 	"github.com/skiff-sh/sdk-go/skiff/pluginapi"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -23,7 +21,7 @@ func (w *WasmTestSuite) TestRunRequest() {
 		ExpectedExitCode pluginapi.ExitCode
 		ExpectedResponse *v1alpha1.Response
 		Given            *v1alpha1.Request
-		Plugin           *skiffmocks.Plugin
+		Plugin           *mockPlugin
 		EnvVars          map[string]string
 		Constructor      func() test
 	}
@@ -31,7 +29,7 @@ func (w *WasmTestSuite) TestRunRequest() {
 	tests := map[string]test{
 		"basic": {
 			Constructor: func() test {
-				plug := new(skiffmocks.Plugin)
+				plug := new(mockPlugin)
 				plug.EXPECT().WriteFile(mock.Anything, &v1alpha1.WriteFileRequest{}).Return(&v1alpha1.WriteFileResponse{}, nil)
 				return test{
 					ExpectedResponse: &v1alpha1.Response{WriteFile: &v1alpha1.WriteFileResponse{}},
@@ -42,8 +40,8 @@ func (w *WasmTestSuite) TestRunRequest() {
 		},
 		"handles panic": {
 			Constructor: func() test {
-				plug := new(skiffmocks.Plugin)
-				plug.EXPECT().WriteFile(mock.Anything, &v1alpha1.WriteFileRequest{}).RunAndReturn(func(ctx *skiff.Context, req *v1alpha1.WriteFileRequest) (*v1alpha1.WriteFileResponse, error) {
+				plug := new(mockPlugin)
+				plug.EXPECT().WriteFile(mock.Anything, &v1alpha1.WriteFileRequest{}).RunAndReturn(func(ctx *Context, req *v1alpha1.WriteFileRequest) (*v1alpha1.WriteFileResponse, error) {
 					panic("panic!")
 				})
 				return test{
