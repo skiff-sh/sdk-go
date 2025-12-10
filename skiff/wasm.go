@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
@@ -64,7 +65,7 @@ func runPlugin(ctx *Context, req *v1alpha1.Request) (*v1alpha1.Response, error) 
 	var err error
 	defer func() {
 		if recovered := recover(); recovered != nil {
-			slog.Error("Panic occurred.", "panic", recovered)
+			slog.Error("Panic occurred.", "panic", recovered, "stack", string(debug.Stack()))
 			err = fmt.Errorf("runtime error: %v", recovered)
 		}
 	}()
