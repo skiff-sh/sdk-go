@@ -37,7 +37,7 @@ func runRequest(plug Plugin, in io.Reader, out io.Writer) pluginapi.ExitCode {
 		return code
 	}
 
-	logger.Info("Parsing request.")
+	logger.Debug("Parsing request.")
 	req, code := parseRequest(in, evs.MessageDelim)
 	if code != pluginapi.ExitCodeOK {
 		return code
@@ -60,14 +60,14 @@ func runRequest(plug Plugin, in io.Reader, out io.Writer) pluginapi.ExitCode {
 		Metadata: req.Metadata,
 	}
 
-	logger.Info("Handling request.")
+	logger.Debug("Handling request.")
 	resp, err := runPlugin(ctx, plug, req)
 	if err != nil {
 		logger.Error("Failed to handle request.", "err", err.Error())
 		resp = &v1alpha1.Response{Issues: issues(err)}
 	}
 
-	logger.Info("Returning response.")
+	logger.Debug("Returning response.")
 	return writeResponse(out, evs.MessageDelim, resp)
 }
 
@@ -78,7 +78,7 @@ func runPlugin(ctx *Context, plug Plugin, req *v1alpha1.Request) (resp *v1alpha1
 			slog.Error("Panic occurred.", "panic", recovered)
 			fmt.Println("-- Stack trace --")
 			fmt.Println(string(debug.Stack()))
-			err = fmt.Errorf("runtime error: %v", recovered)
+			err = fmt.Errorf("panic occurred: %v", recovered)
 		}
 	}()
 	if req.WriteFile != nil {
@@ -163,7 +163,7 @@ func parseRequest(reader io.Reader, delim byte) (*v1alpha1.Request, pluginapi.Ex
 		return nil, pluginapi.ExitCodeFailedToReadRequest
 	}
 	if len(b) == 0 {
-		slog.Info("Received an empty request. Returning.")
+		slog.Debug("Received an empty request. Returning.")
 		return nil, pluginapi.ExitCodeOK
 	}
 
