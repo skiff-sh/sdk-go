@@ -60,9 +60,8 @@ func handleRequest() uint64 {
 	return uint64(writeResponse(os.Stdout, evs.MessageDelim, resp))
 }
 
-func runPlugin(ctx *Context, req *v1alpha1.Request) (*v1alpha1.Response, error) {
-	resp := &v1alpha1.Response{}
-	var err error
+func runPlugin(ctx *Context, req *v1alpha1.Request) (resp *v1alpha1.Response, err error) {
+	resp = &v1alpha1.Response{}
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			slog.Error("Panic occurred.", "panic", recovered, "stack", string(debug.Stack()))
