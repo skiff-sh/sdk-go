@@ -45,7 +45,7 @@ func (w *WasmTestSuite) TestRunRequest() {
 					panic("panic!")
 				})
 				return test{
-					ExpectedResponse: &v1alpha1.Response{Issues: []*v1alpha1.Issue{{Message: "runtime error: panic!", Level: v1alpha1.IssueLevel_LEVEL_ERROR}}},
+					ExpectedResponse: &v1alpha1.Response{Issues: []*v1alpha1.Issue{{Message: "panic occurred: panic!", Level: v1alpha1.IssueLevel_LEVEL_ERROR}}},
 					Given:            &v1alpha1.Request{WriteFile: &v1alpha1.WriteFileRequest{}},
 					Plugin:           plug,
 				}

@@ -11,18 +11,24 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
+	"sync"
 
 	"github.com/skiff-sh/api/go/skiff/plugin/v1alpha1"
 	"github.com/skiff-sh/sdk-go/skiff/issue"
 	"github.com/skiff-sh/sdk-go/skiff/pluginapi"
 )
 
+var getBuffers = sync.OnceValues[io.Reader, io.Writer](func() (io.Reader, io.Writer) {
+	// All log statements must go to stderr. Stdout is for returning the response of the call.
+	stdout := os.Stdout
+	os.Stdout = os.Stderr
+	return os.Stdin, stdout
+})
+
 //go:wasmexport handleRequest
 func handleRequest() uint64 {
-	stdout := os.Stdout
-	// All log statements must go to stderr. Stdout is for returning the response of the call.
-	os.Stdout = os.Stderr
-	return uint64(runRequest(plugin, os.Stdin, stdout))
+	in, out := getBuffers()
+	return uint64(runRequest(plugin, in, out))
 }
 
 // runRequest reads the request from in and writes the response to out.
